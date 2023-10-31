@@ -602,6 +602,102 @@ get_session(coap_context_t *ctx,
   return session;
 }
 
+void send_image(coap_context_t *ctx,coap_session_t *session) {
+    
+    coap_pdu_t *request = NULL;
+    uint8_t token[8];
+    size_t tokenlen; 
+    payload.length = 0;
+    payload.s = NULL; 
+
+    struct timeval before;
+    struct timeval after;
+    long long time_elapsed_us;
+    gettimeofday(&before, NULL);
+
+    take_camera();
+
+    printf("Image captured and saved as 'image.jpg'\n");
+     time_elapsed_us = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
+    printf("aaaaaaaaaaaa %lld\n",time_elapsed_us); 
+
+    FILE *file;
+    char *filename = "../output/image3.jpg";  // Replace with your file name
+    file = fopen(filename, "rb");
+
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    // Get the file size
+    fseek(file, 0, SEEK_END);
+    size_t file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    // Allocate memory for the uint8_t array
+    uint8_t *data = (uint8_t *)malloc(file_size);
+
+    if (data == NULL) {
+        perror("Memory allocation error");
+        fclose(file);
+        return;
+    }
+
+    // Read the file into the uint8_t array
+    size_t bytes_read = fread(data, 1, file_size, file);
+
+    if (bytes_read != file_size) {
+        perror("Error reading file");
+        free(data);
+        fclose(file);
+        return;
+    }
+
+    fclose(file);
+
+    payload.s = data;
+    payload.length = file_size;
+   
+    printf("Value of myUInt8: %u\n", payload.s);
+    printf("Value of mySizeT: %zu\n", payload.length);
+    coap_log(LOG_NOTICE, "Take image success\n");
+    //send_duration = esp_timer_get_time();
+    //coap_log(LOG_NOTICE, "Start sending image, start tick %lld\n", send_duration);
+
+  if (!(request = coap_new_request(ctx, session, method, &optlist, payload.s,
+                               payload.length))) {
+    goto clean_up;
+  }
+  printf("Create New Request\n");
+
+  if (is_mcast && wait_seconds == DEFAULT_WAIT_TIME)
+    /* Allow for other servers to respond within DEFAULT_LEISURE RFC7252 8.2 */
+    wait_seconds = coap_session_get_default_leisure(session).integer_part + 1;
+
+  wait_ms = wait_seconds * 1000;
+  coap_log_debug("timeout is set to %u seconds\n", wait_seconds);
+
+  coap_log_debug("sending CoAP request:\n");
+  // if (coap_get_log_level() < COAP_LOG_DEBUG)
+    coap_show_pdu(COAP_LOG_INFO, request);
+    
+  if (coap_send(session, request) == COAP_INVALID_MID) {
+    coap_log_err("cannot send CoAP pdu\n");
+    quit = 1; 
+  }
+  printf("Send Request\n");
+   
+clean_up:
+    coap_log(LOG_NOTICE, "Clean Up\n");
+    if (optlist) {
+        coap_delete_optlist(optlist);
+        optlist = NULL;
+    }
+    return;
+
+} 
+
 int main(int argc, char **argv) {
   coap_context_t  *ctx = NULL; //ok
   coap_session_t *session = NULL; //ok
@@ -783,43 +879,44 @@ int main(int argc, char **argv) {
   /* set block option if requested at commandline */
   
   set_blocksize();
-  takeVideo();
+ 
   //readVideoFrames();
-  readVideointoBuffer();
-  return 0;
+  //readVideointoBuffer();
+ 
   /* Send the first (and may be only PDU) */
-  if (payload.length) {
-    /* Create some new data to use for this iteration */
-    data = (uint8_t*)coap_malloc(payload.length);
-    if (data == NULL)
-      goto failed;
-    memcpy(data, payload.s, payload.length);
-    data_len = payload.length;
-  }
-  if (!(pdu = coap_new_request(ctx, session, method, &optlist, data,
-                               data_len))) {
-    goto failed;
-  }
-  printf("Create New Request\n");
+  // if (payload.length) {
+  //   /* Create some new data to use for this iteration */
+  //   data = (uint8_t*)coap_malloc(payload.length);
+  //   if (data == NULL)
+  //     goto failed;
+  //   memcpy(data, payload.s, payload.length);
+  //   data_len = payload.length;
+  // }
+  // if (!(pdu = coap_new_request(ctx, session, method, &optlist, data,
+  //                              data_len))) {
+  //   goto failed;
+  // }
+  // printf("Create New Request\n");
 
-  if (is_mcast && wait_seconds == DEFAULT_WAIT_TIME)
-    /* Allow for other servers to respond within DEFAULT_LEISURE RFC7252 8.2 */
-    wait_seconds = coap_session_get_default_leisure(session).integer_part + 1;
+  // if (is_mcast && wait_seconds == DEFAULT_WAIT_TIME)
+  //   /* Allow for other servers to respond within DEFAULT_LEISURE RFC7252 8.2 */
+  //   wait_seconds = coap_session_get_default_leisure(session).integer_part + 1;
 
-  wait_ms = wait_seconds * 1000;
-  coap_log_debug("timeout is set to %u seconds\n", wait_seconds);
+  // wait_ms = wait_seconds * 1000;
+  // coap_log_debug("timeout is set to %u seconds\n", wait_seconds);
 
-  coap_log_debug("sending CoAP request:\n");
-  // if (coap_get_log_level() < COAP_LOG_DEBUG)
-    coap_show_pdu(COAP_LOG_INFO, pdu);
+  // coap_log_debug("sending CoAP request:\n");
+  // // if (coap_get_log_level() < COAP_LOG_DEBUG)
+  //   coap_show_pdu(COAP_LOG_INFO, pdu);
     
-  if (coap_send(session, pdu) == COAP_INVALID_MID) {
-    coap_log_err("cannot send CoAP pdu\n");
-    quit = 1; 
-  }
-  printf("Send Request\n");
+  // if (coap_send(session, pdu) == COAP_INVALID_MID) {
+  //   coap_log_err("cannot send CoAP pdu\n");
+  //   quit = 1; 
+  // }
+  // printf("Send Request\n");
   
-  repeat_count--;
+  // repeat_count--;
+  send_image(ctx,session);
  
   while (!quit &&                /* immediate quit not required .. and .. */
          (tracked_tokens_count || /* token not responded to or still observe */
@@ -879,28 +976,30 @@ int main(int argc, char **argv) {
         } else {
           /* Doing this once a second */
           repeat_ms = REPEAT_DELAY_MS;
-          if (payload.length) {
-            /* Create some new data to use for this iteration */
-            data = (uint8_t*)coap_malloc(payload.length);
-            if (data == NULL)
-              goto failed;
-            memcpy(data, payload.s, payload.length);
-            data_len = payload.length;
-          }
-          if (!(pdu = coap_new_request(ctx, session, method, &optlist,
-                                       data, data_len))) {
-            goto failed;
-          }
-          coap_log_debug("sending CoAP request:\n");
-          if (coap_get_log_level() < COAP_LOG_DEBUG)
-            coap_show_pdu(COAP_LOG_INFO, pdu);
-
           ready = 0;
-          if (coap_send(session, pdu) == COAP_INVALID_MID) {
-            coap_log_err("cannot send CoAP pdu\n");
-            quit = 1;
-          }
-          repeat_count--;
+          send_image(ctx,session);
+          // if (payload.length) {
+          //   /* Create some new data to use for this iteration */
+          //   data = (uint8_t*)coap_malloc(payload.length);
+          //   if (data == NULL)
+          //     goto failed;
+          //   memcpy(data, payload.s, payload.length);
+          //   data_len = payload.length;
+          // }
+          // if (!(pdu = coap_new_request(ctx, session, method, &optlist,
+          //                              data, data_len))) {
+          //   goto failed;
+          // }
+          // coap_log_debug("sending CoAP request:\n");
+          // if (coap_get_log_level() < COAP_LOG_DEBUG)
+          //   coap_show_pdu(COAP_LOG_INFO, pdu);
+
+          // ready = 0;
+          // if (coap_send(session, pdu) == COAP_INVALID_MID) {
+          //   coap_log_err("cannot send CoAP pdu\n");
+          //   quit = 1;
+          // }
+          // repeat_count--;
         }
       }
       obs_ms_reset = 0;

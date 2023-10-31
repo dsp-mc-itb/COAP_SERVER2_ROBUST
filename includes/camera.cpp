@@ -16,31 +16,47 @@ void signal_callback(int signum){
 int take_camera() {
    
     time_t timer_begin,timer_end;
-    raspicam::RaspiCam_Cv Camera;
+    raspicam::RaspiCam_Cv camera;
     cv::Mat image;
-    int nCount=50;
+    int nCount=1;
     //set camera params
-    Camera.set(cv::CAP_PROP_FORMAT, CV_8UC1 );
+    int width = 640;
+    int height = 480;
+
+    // Set camera parameters (optional)
+    camera.set(cv::CAP_PROP_FRAME_WIDTH, width);
+    camera.set(cv::CAP_PROP_FRAME_HEIGHT, height);
+    camera.set(cv::CAP_PROP_FORMAT, CV_8UC3);  // RGB format
+    // Set shutter speed (in microseconds)
+    camera.set(cv::CAP_PROP_EXPOSURE, 700);  // Example value, adjust as needed
+    // Set ISO sensitivity
+    camera.set(cv::CAP_PROP_ISO_SPEED, 300);
+    // Set brightness level
+    camera.set(cv::CAP_PROP_BRIGHTNESS, 60); 
+   
     //Open camera
     cout<<"Opening Camera..."<<endl;
-    if (!Camera.open()) {cerr<<"Error opening the camera"<<endl;return -1;}
+    if (!camera.open()) {cerr<<"Error opening the camera"<<endl;return -1;}
     //Start capture
     cout<<"Capturing "<<nCount<<" frames ...."<<endl;
     time ( &timer_begin );
-    for ( int i=0; i<nCount; i++ ) {
-        Camera.grab();
-        Camera.retrieve ( image);
-        if ( i%5==0 )  cout<<"\r captured "<<i<<" images"<<std::flush;
-    }
+    int key = cv::waitKey(3000);
+    camera.grab();
+    camera.retrieve ( image);
+        // if ( i%5==0 )  cout<<"\r captured "<<i<<" images"<<std::flush;
+    
     cout<<"\nStop camera..."<<endl;
-    Camera.release();
+   
     //show time statistics
     time ( &timer_end ); /* get current time; same as: timer = time(NULL)  */
     double secondsElapsed = difftime ( timer_end,timer_begin );
     cout<< secondsElapsed<<" seconds for "<< nCount<<"  frames : FPS = "<<  ( float ) ( ( float ) ( nCount ) /secondsElapsed ) <<endl;
     //save image 
-    cv::imwrite("../output/image2.jpg",image);
+ 
+    cv::imwrite("../output/image3.jpg", image, {cv::IMWRITE_JPEG_QUALITY, 60});
+
     cout<<"Image saved at raspicam_cv_image.jpg"<<endl;
+    camera.release();
     return 0;
 }
 
