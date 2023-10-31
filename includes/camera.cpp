@@ -13,6 +13,29 @@ using namespace std;
 void signal_callback(int signum){
     exit(signum);
 }
+int initialize_camera(raspicam::RaspiCam_Cv* camera){
+    int width = 640;
+    int height = 480;
+    camera->set(cv::CAP_PROP_FRAME_WIDTH, width);
+    camera->set(cv::CAP_PROP_FRAME_HEIGHT, height);
+    camera->set(cv::CAP_PROP_FORMAT, CV_8UC3);  // RGB format
+    // Set shutter speed (in microseconds)
+    camera->set(cv::CAP_PROP_EXPOSURE, 700);  // Example value, adjust as needed
+    // Set ISO sensitivity
+    camera->set(cv::CAP_PROP_ISO_SPEED, 300);
+    // Set brightness level
+    camera->set(cv::CAP_PROP_BRIGHTNESS, 60); 
+   
+    //Open camera
+    cout<<"Opening Camera..."<<endl;
+    if (!camera->open()) {cerr<<"Error opening the camera"<<endl;return -1;}
+    //Start capture
+    
+    
+    int key = cv::waitKey(3000);
+    return 0;
+}
+
 int take_camera() {
    
     time_t timer_begin,timer_end;

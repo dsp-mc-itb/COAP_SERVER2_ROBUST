@@ -42,7 +42,9 @@ extern "C" {
 
 #include "common.c"
 #include "camera.cpp"
-
+// #include <raspicam/raspicam_cv.h>
+// #include <opencv2/opencv.hpp>
+raspicam::RaspiCam_Cv camera2;
 int flags = 0;
 
 static unsigned char _token_data[24]; /* With support for RFC8974 */
@@ -720,6 +722,7 @@ int main(int argc, char **argv) {
   size_t data_len = 0; //ok
   coap_addr_info_t *info_list = NULL; //ok
   static unsigned char buf[BUFSIZE];
+   cv::Mat image2;
 #ifndef _WIN32
   struct sigaction sa;
 #endif
@@ -879,6 +882,23 @@ int main(int argc, char **argv) {
   /* set block option if requested at commandline */
   
   set_blocksize();
+  
+  initialize_camera(&camera2);
+  camera2.grab();
+    camera2.retrieve (image2);
+        // if ( i%5==0 )  cout<<"\r captured "<<i<<" images"<<std::flush;
+    
+    cout<<"\nStop camera..."<<endl;
+   
+    //show time statistics
+ 
+    cv::imwrite("../output/image3.jpg", image2, {cv::IMWRITE_JPEG_QUALITY, 60});
+
+    cout<<"Image saved at raspicam_cv_image.jpg"<<endl;
+    camera2.release();
+
+
+  return 1;
  
   //readVideoFrames();
   //readVideointoBuffer();
