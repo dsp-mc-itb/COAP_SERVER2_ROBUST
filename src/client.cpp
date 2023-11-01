@@ -15,20 +15,9 @@ extern "C" {
 #include <signal.h>
 #include <sys/time.h>
 #include <coap3/coap.h>
-#include "config_default.h"
+#include "config.h"
 }
 
-
-// #ifdef _WIN32
-// printf("a");
-// #define strcasecmp _stricmp
-// printf("b");
-// #include "getopt.c"
-// #if !defined(S_ISDIR)
-// printf("c");
-// #define S_ISDIR(m) (((m)&S_IFMT) == S_IFDIR)
-// #endif
-// #else
 extern "C" {
 #include <unistd.h>
 #include <sys/select.h>
@@ -39,11 +28,9 @@ extern "C" {
 #include <dirent.h>
 }
 // #endif
-
 #include "common.c"
 #include "camera.cpp"
-// #include <raspicam/raspicam_cv.h>
-// #include <opencv2/opencv.hpp>
+
 raspicam::RaspiCam_Cv camera2;
 int flags = 0;
 
@@ -74,19 +61,34 @@ static char *ca_file = NULL;   /* CA for cert_file - for cert checking in PEM,
                                   DER or PKCS11 URI */
 static char *cert_file = NULL; /* certificate and optional private key in PEM,
                                   or PKCS11 URI*/
-
-
 static size_t repeat_count = 1;
 static int ready = 0;
 static int doing_getting_block = 0;
 static int single_block_requested = 0;
 //static uint32_t block_mode = COAP_BLOCK_USE_LIBCOAP; //COAP_BLOCK_USE_LIBCOAP;
-static uint32_t block_mode = COAP_BLOCK_TRY_Q_BLOCK | COAP_BLOCK_USE_LIBCOAP ;
+//static uint32_t block_mode = COAP_BLOCK_TRY_Q_BLOCK | COAP_BLOCK_USE_LIBCOAP ;
+#if CONFIG_COAP_METHOD == 0
+  unsigned char msgtype = COAP_MESSAGE_CON;
+  static uint32_t block_mode = COAP_BLOCK_USE_LIBCOAP;
+
+#elif CONFIG_COAP_METHOD == 1
+  unsigned char msgtype = COAP_MESSAGE_NON;
+  static uint32_t block_mode = COAP_BLOCK_TRY_Q_BLOCK | COAP_BLOCK_USE_LIBCOAP ;
+#endif
+//   //BLock wise
+//   block_mode = COAP_BLOCK_USE_LIBCOAP ;
+//   msgtype = COAP_MESSAGE_CON; 
+// } else if (true){
+//   //Robust
+//   block_mode = COAP_BLOCK_TRY_Q_BLOCK | COAP_BLOCK_USE_LIBCOAP ;
+//   msgtype = COAP_MESSAGE_NON; 
+// }
+
 static coap_string_t output_file = { 0, NULL };   /* output file name */
 static FILE *file = NULL;   
 
 #define DEFAULT_WAIT_TIME 90
-unsigned char msgtype = COAP_MESSAGE_NON; 
+
 typedef unsigned char method_t;
 method_t method = COAP_REQUEST_CODE_PUT; 
 coap_block_t block = { .num = 0, .m = 0, .szx = 6 };
@@ -171,9 +173,7 @@ set_blocksize(void) {
         coap_log_info("Using BLOCK 2\n");
       }
     } else {
-      printf("%d\n",coap_q_block_is_supported());
-      printf("%d\n",block_mode);
-      printf("%d\n",block_mode & COAP_BLOCK_TRY_Q_BLOCK);
+      coap_log_notice("Q-Block Suppoert : %d\n",coap_q_block_is_supported());
       if (coap_q_block_is_supported() && block_mode & COAP_BLOCK_TRY_Q_BLOCK){
         opt = COAP_OPTION_Q_BLOCK1;
         coap_log_info("Using Q BLOCK 1\n");
@@ -244,7 +244,6 @@ track_flush_token(coap_bin_const_t *token, int force) {
   }
 }
 
-
 static coap_pdu_t *
 coap_new_request(coap_context_t *ctx,
                  coap_session_t *session,
@@ -281,7 +280,7 @@ coap_new_request(coap_context_t *ctx,
 
   if (options){
     coap_add_optlist_pdu(pdu, options);
-    printf("add option\n");
+    
   }
     coap_add_option(pdu, COAP_OPTION_URI_PATH, 5, (uint8_t *)image_path);
   if (length) {
@@ -296,8 +295,8 @@ coap_new_request(coap_context_t *ctx,
 static int
 event_handler(coap_session_t *session COAP_UNUSED,
               const coap_event_t event) {
-    printf("EVNT TRIGGER\n");
-
+  coap_log_notice("EVENT TRIGGER\n");
+    
   switch (event) {
   case COAP_EVENT_DTLS_CLOSED:
   case COAP_EVENT_TCP_CLOSED:
@@ -338,7 +337,7 @@ nack_handler(coap_session_t *session COAP_UNUSED,
              const coap_pdu_t *sent,
              const coap_nack_reason_t reason,
              const coap_mid_t mid COAP_UNUSED) {
-              printf("NACK TRIGGER\n");
+  coap_log_notice("NACK TRIGGER\n");
   if (sent) {
     coap_bin_const_t token = coap_pdu_get_token(sent);
 
@@ -604,31 +603,35 @@ get_session(coap_context_t *ctx,
   return session;
 }
 
-void send_image(coap_context_t *ctx,coap_session_t *session) {
+void send_image(coap_context_t *ctx,coap_session_t *session,raspicam::RaspiCam_Cv* camera) {
     
     coap_pdu_t *request = NULL;
     uint8_t token[8];
     size_t tokenlen; 
     payload.length = 0;
     payload.s = NULL; 
-
     struct timeval before;
     struct timeval after;
     long long time_elapsed_us;
     gettimeofday(&before, NULL);
+    ready = 0;
 
-    take_camera();
-
-    printf("Image captured and saved as 'image.jpg'\n");
-     time_elapsed_us = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
-    printf("aaaaaaaaaaaa %lld\n",time_elapsed_us); 
-
+    cv::Mat image;
+    coap_log_notice("Taking Frame !\n");
+    camera->grab();
+    camera->retrieve (image);
+     
+    cv::imwrite("../output/image4.jpg", image, {cv::IMWRITE_JPEG_QUALITY, 60});
+    gettimeofday(&after, NULL);
+    
+    time_elapsed_us = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
+    coap_log_notice("Write to .jpeg !\n");
     FILE *file;
-    char *filename = "../output/image3.jpg";  // Replace with your file name
+    char *filename = "../output/image4.jpg";  // Replace with your file name
     file = fopen(filename, "rb");
 
     if (file == NULL) {
-        perror("Error opening file");
+        coap_log_err("Error opening file\n");
         return;
     }
 
@@ -641,7 +644,7 @@ void send_image(coap_context_t *ctx,coap_session_t *session) {
     uint8_t *data = (uint8_t *)malloc(file_size);
 
     if (data == NULL) {
-        perror("Memory allocation error");
+        coap_log_err("Memory allocation error\n");
         fclose(file);
         return;
     }
@@ -650,7 +653,7 @@ void send_image(coap_context_t *ctx,coap_session_t *session) {
     size_t bytes_read = fread(data, 1, file_size, file);
 
     if (bytes_read != file_size) {
-        perror("Error reading file");
+        coap_log_err("Error Reading file\n");
         free(data);
         fclose(file);
         return;
@@ -660,44 +663,37 @@ void send_image(coap_context_t *ctx,coap_session_t *session) {
 
     payload.s = data;
     payload.length = file_size;
-   
-    printf("Value of myUInt8: %u\n", payload.s);
-    printf("Value of mySizeT: %zu\n", payload.length);
-    coap_log(LOG_NOTICE, "Take image success\n");
-    //send_duration = esp_timer_get_time();
-    //coap_log(LOG_NOTICE, "Start sending image, start tick %lld\n", send_duration);
 
-  if (!(request = coap_new_request(ctx, session, method, &optlist, payload.s,
-                               payload.length))) {
-    goto clean_up;
-  }
-  printf("Create New Request\n");
+    coap_log_notice("Value of myUInt8: %u\n", payload.s);
+    coap_log_notice("Value of mySizeT: %zu\n", payload.length);
 
-  if (is_mcast && wait_seconds == DEFAULT_WAIT_TIME)
+    coap_log_notice("Create New Request\n");
+    if (!(request = coap_new_request(ctx, session, method, &optlist, payload.s,
+                                payload.length))) {
+      coap_log_err("Create New Request\n");
+      return;
+    }
+  
+    if (is_mcast && wait_seconds == DEFAULT_WAIT_TIME)
     /* Allow for other servers to respond within DEFAULT_LEISURE RFC7252 8.2 */
     wait_seconds = coap_session_get_default_leisure(session).integer_part + 1;
 
-  wait_ms = wait_seconds * 1000;
-  coap_log_debug("timeout is set to %u seconds\n", wait_seconds);
-
-  coap_log_debug("sending CoAP request:\n");
-  // if (coap_get_log_level() < COAP_LOG_DEBUG)
+    wait_ms = wait_seconds * 1000;
+    coap_log_debug("timeout is set to %u seconds\n", wait_seconds);
+    coap_log_notice("sending CoAP request:\n");  
     coap_show_pdu(COAP_LOG_INFO, request);
     
-  if (coap_send(session, request) == COAP_INVALID_MID) {
-    coap_log_err("cannot send CoAP pdu\n");
-    quit = 1; 
-  }
-  printf("Send Request\n");
+    if (coap_send(session, request) == COAP_INVALID_MID) {
+      coap_log_err("cannot send CoAP pdu\n");
+      quit = 1; 
+    }
    
-clean_up:
     coap_log(LOG_NOTICE, "Clean Up\n");
     if (optlist) {
         coap_delete_optlist(optlist);
         optlist = NULL;
     }
     return;
-
 } 
 
 int main(int argc, char **argv) {
@@ -722,12 +718,17 @@ int main(int argc, char **argv) {
   size_t data_len = 0; //ok
   coap_addr_info_t *info_list = NULL; //ok
   static unsigned char buf[BUFSIZE];
-   cv::Mat image2;
+  cv::Mat image2;
 #ifndef _WIN32
   struct sigaction sa;
 #endif
   /* Initialize libcoap library */
+  
   coap_startup();
+  coap_set_log_level(log_level);
+  coap_log_notice("Coap_Startup\n");
+  coap_log(LOG_NOTICE, "Cannot add debug packet loss!\n");
+  
   if (!coap_debug_set_packet_loss(PACKET_LOSS)) {
         coap_log(LOG_NOTICE, "Cannot add debug packet loss!\n");
   };
@@ -807,8 +808,6 @@ int main(int argc, char **argv) {
   sigaction(SIGPIPE, &sa, NULL);
 #endif
 
-  coap_set_log_level(log_level);
-
   if (coap_split_uri((unsigned char *)server_uri, strlen(server_uri), &uri) == -1)
       { printf("CoAP server uri error"); }
 
@@ -883,60 +882,12 @@ int main(int argc, char **argv) {
   
   set_blocksize();
   
-  initialize_camera(&camera2);
-  camera2.grab();
-    camera2.retrieve (image2);
-        // if ( i%5==0 )  cout<<"\r captured "<<i<<" images"<<std::flush;
-    
-    cout<<"\nStop camera..."<<endl;
-   
-    //show time statistics
- 
-    cv::imwrite("../output/image3.jpg", image2, {cv::IMWRITE_JPEG_QUALITY, 60});
-
-    cout<<"Image saved at raspicam_cv_image.jpg"<<endl;
-    camera2.release();
-
-
-  return 1;
- 
-  //readVideoFrames();
-  //readVideointoBuffer();
- 
-  /* Send the first (and may be only PDU) */
-  // if (payload.length) {
-  //   /* Create some new data to use for this iteration */
-  //   data = (uint8_t*)coap_malloc(payload.length);
-  //   if (data == NULL)
-  //     goto failed;
-  //   memcpy(data, payload.s, payload.length);
-  //   data_len = payload.length;
-  // }
-  // if (!(pdu = coap_new_request(ctx, session, method, &optlist, data,
-  //                              data_len))) {
-  //   goto failed;
-  // }
-  // printf("Create New Request\n");
-
-  // if (is_mcast && wait_seconds == DEFAULT_WAIT_TIME)
-  //   /* Allow for other servers to respond within DEFAULT_LEISURE RFC7252 8.2 */
-  //   wait_seconds = coap_session_get_default_leisure(session).integer_part + 1;
-
-  // wait_ms = wait_seconds * 1000;
-  // coap_log_debug("timeout is set to %u seconds\n", wait_seconds);
-
-  // coap_log_debug("sending CoAP request:\n");
-  // // if (coap_get_log_level() < COAP_LOG_DEBUG)
-  //   coap_show_pdu(COAP_LOG_INFO, pdu);
-    
-  // if (coap_send(session, pdu) == COAP_INVALID_MID) {
-  //   coap_log_err("cannot send CoAP pdu\n");
-  //   quit = 1; 
-  // }
-  // printf("Send Request\n");
-  
-  // repeat_count--;
-  send_image(ctx,session);
+  if (initialize_camera(&camera2) == -1){
+    coap_log_err("Error initialize Camera !\n");
+    goto failed;
+  }
+  coap_log_notice("send first frame\n");
+  send_image(ctx,session,&camera2);
  
   while (!quit &&                /* immediate quit not required .. and .. */
          (tracked_tokens_count || /* token not responded to or still observe */
@@ -996,30 +947,9 @@ int main(int argc, char **argv) {
         } else {
           /* Doing this once a second */
           repeat_ms = REPEAT_DELAY_MS;
-          ready = 0;
-          send_image(ctx,session);
-          // if (payload.length) {
-          //   /* Create some new data to use for this iteration */
-          //   data = (uint8_t*)coap_malloc(payload.length);
-          //   if (data == NULL)
-          //     goto failed;
-          //   memcpy(data, payload.s, payload.length);
-          //   data_len = payload.length;
-          // }
-          // if (!(pdu = coap_new_request(ctx, session, method, &optlist,
-          //                              data, data_len))) {
-          //   goto failed;
-          // }
-          // coap_log_debug("sending CoAP request:\n");
-          // if (coap_get_log_level() < COAP_LOG_DEBUG)
-          //   coap_show_pdu(COAP_LOG_INFO, pdu);
-
-          // ready = 0;
-          // if (coap_send(session, pdu) == COAP_INVALID_MID) {
-          //   coap_log_err("cannot send CoAP pdu\n");
-          //   quit = 1;
-          // }
-          // repeat_count--;
+          coap_log_notice("Prepare send image\n");
+          send_image(ctx,session,&camera2);
+          
         }
       }
       obs_ms_reset = 0;
@@ -1041,10 +971,11 @@ finish:
   }
   free(tracked_tokens);
   coap_delete_optlist(optlist);
+  camera2.release();
   return exit_code;
 
 failed:
   exit_code = 1;
-  printf("FINISH EXIT CODE\n");
+  coap_log_crit("FAILED EXIT CODE\n");
   goto finish;
 }

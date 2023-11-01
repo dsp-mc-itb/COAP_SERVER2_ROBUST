@@ -27,59 +27,55 @@ int initialize_camera(raspicam::RaspiCam_Cv* camera){
     camera->set(cv::CAP_PROP_BRIGHTNESS, 60); 
    
     //Open camera
-    cout<<"Opening Camera..."<<endl;
-    if (!camera->open()) {cerr<<"Error opening the camera"<<endl;return -1;}
-    //Start capture
-    
-    
+    if (!camera->open()) {cerr<<"Error opening the camera"<<endl;return -1;} 
     int key = cv::waitKey(3000);
     return 0;
 }
 
-int take_camera() {
+int take_camera(raspicam::RaspiCam_Cv camera) {
    
-    time_t timer_begin,timer_end;
-    raspicam::RaspiCam_Cv camera;
+    // time_t timer_begin,timer_end;
+    // raspicam::RaspiCam_Cv camera;
     cv::Mat image;
-    int nCount=1;
+    // int nCount=1;
     //set camera params
-    int width = 640;
-    int height = 480;
+    // int width = 640;
+    // int height = 480;
 
     // Set camera parameters (optional)
-    camera.set(cv::CAP_PROP_FRAME_WIDTH, width);
-    camera.set(cv::CAP_PROP_FRAME_HEIGHT, height);
-    camera.set(cv::CAP_PROP_FORMAT, CV_8UC3);  // RGB format
-    // Set shutter speed (in microseconds)
-    camera.set(cv::CAP_PROP_EXPOSURE, 700);  // Example value, adjust as needed
-    // Set ISO sensitivity
-    camera.set(cv::CAP_PROP_ISO_SPEED, 300);
-    // Set brightness level
-    camera.set(cv::CAP_PROP_BRIGHTNESS, 60); 
+    // camera.set(cv::CAP_PROP_FRAME_WIDTH, width);
+    // camera.set(cv::CAP_PROP_FRAME_HEIGHT, height);
+    // camera.set(cv::CAP_PROP_FORMAT, CV_8UC3);  // RGB format
+    // // Set shutter speed (in microseconds)
+    // camera.set(cv::CAP_PROP_EXPOSURE, 700);  // Example value, adjust as needed
+    // // Set ISO sensitivity
+    // camera.set(cv::CAP_PROP_ISO_SPEED, 300);
+    // // Set brightness level
+    // camera.set(cv::CAP_PROP_BRIGHTNESS, 60); 
    
-    //Open camera
-    cout<<"Opening Camera..."<<endl;
-    if (!camera.open()) {cerr<<"Error opening the camera"<<endl;return -1;}
-    //Start capture
-    cout<<"Capturing "<<nCount<<" frames ...."<<endl;
-    time ( &timer_begin );
-    int key = cv::waitKey(3000);
+    // //Open camera
+    // cout<<"Opening Camera..."<<endl;
+    // if (!camera.open()) {cerr<<"Error opening the camera"<<endl;return -1;}
+    // //Start capture
+    // cout<<"Capturing "<<nCount<<" frames ...."<<endl;
+    // time ( &timer_begin );
+    // int key = cv::waitKey(3000);
     camera.grab();
     camera.retrieve ( image);
         // if ( i%5==0 )  cout<<"\r captured "<<i<<" images"<<std::flush;
     
-    cout<<"\nStop camera..."<<endl;
+    // cout<<"\nStop camera..."<<endl;
    
     //show time statistics
-    time ( &timer_end ); /* get current time; same as: timer = time(NULL)  */
-    double secondsElapsed = difftime ( timer_end,timer_begin );
-    cout<< secondsElapsed<<" seconds for "<< nCount<<"  frames : FPS = "<<  ( float ) ( ( float ) ( nCount ) /secondsElapsed ) <<endl;
-    //save image 
+    // time ( &timer_end ); /* get current time; same as: timer = time(NULL)  */
+    // double secondsElapsed = difftime ( timer_end,timer_begin );
+    // cout<< secondsElapsed<<" seconds for "<< nCount<<"  frames : FPS = "<<  ( float ) ( ( float ) ( nCount ) /secondsElapsed ) <<endl;
+    // //save image 
  
-    cv::imwrite("../output/image3.jpg", image, {cv::IMWRITE_JPEG_QUALITY, 60});
+    cv::imwrite("../output/image4.jpg", image, {cv::IMWRITE_JPEG_QUALITY, 60});
 
-    cout<<"Image saved at raspicam_cv_image.jpg"<<endl;
-    camera.release();
+    // cout<<"Image saved at raspicam_cv_image.jpg"<<endl;
+    // camera.release();
     return 0;
 }
 
