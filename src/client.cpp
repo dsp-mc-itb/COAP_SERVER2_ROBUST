@@ -50,7 +50,7 @@ static coap_optlist_t *optlist = NULL;
 /* Request URI.
  * TODO: associate the resources with transaction id and make it expireable */
 static coap_uri_t uri;
-const char *server_uri = "coap://192.168.1.150"; // alamat server coap Raspi DDWRT
+const char *server_uri = SERVER_URL; // alamat server coap Raspi DDWRT
 
 static coap_uri_t proxy = { {0, NULL}, 0, {0, NULL}, {0, NULL}, (coap_uri_scheme_t)0 };
 static int proxy_scheme_option = 0;
@@ -621,7 +621,7 @@ void send_image(coap_context_t *ctx,coap_session_t *session,raspicam::RaspiCam_C
     camera->grab();
     camera->retrieve (image);
      
-    cv::imwrite("../output/image4.jpg", image, {cv::IMWRITE_JPEG_QUALITY, 60});
+    cv::imwrite("../output/image4.jpg", image, {cv::IMWRITE_JPEG_QUALITY, 65});
     gettimeofday(&after, NULL);
     
     time_elapsed_us = (after.tv_sec - before.tv_sec) * 1000000 + (after.tv_usec - before.tv_usec);
@@ -861,6 +861,14 @@ int main(int argc, char **argv) {
     coap_log_err("cannot create client session\n");
     goto failed;
   }
+
+  coap_session_set_ack_timeout(session, ACK_TIMEOUT );
+  coap_session_set_ack_random_factor(session, ACK_RANDOM_FACTOR);
+  coap_session_set_non_receive_timeout(session,NON_RECEIVE_TIMEOUT);
+  coap_session_set_non_timeout(session,NON_TIMEOUT);
+  coap_session_set_max_payloads(session, MAX_PAYLOADS_SET);
+  coap_session_set_nstart(session,NSTART);	
+  //void coap_session_set_nstart(coap_session_t *session, uint16_t value);
   /*
    * Prime the base token value, which coap_session_new_token() will increment
    * every time it is called to get an unique token.

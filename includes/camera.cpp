@@ -14,8 +14,8 @@ void signal_callback(int signum){
     exit(signum);
 }
 int initialize_camera(raspicam::RaspiCam_Cv* camera){
-    int width = 640;
-    int height = 480;
+    int width = 1280;
+    int height = 720;
     camera->set(cv::CAP_PROP_FRAME_WIDTH, width);
     camera->set(cv::CAP_PROP_FRAME_HEIGHT, height);
     camera->set(cv::CAP_PROP_FORMAT, CV_8UC3);  // RGB format
@@ -72,7 +72,7 @@ int take_camera(raspicam::RaspiCam_Cv camera) {
     // cout<< secondsElapsed<<" seconds for "<< nCount<<"  frames : FPS = "<<  ( float ) ( ( float ) ( nCount ) /secondsElapsed ) <<endl;
     // //save image 
  
-    cv::imwrite("../output/image4.jpg", image, {cv::IMWRITE_JPEG_QUALITY, 60});
+    cv::imwrite("../output/image4.jpg", image, {cv::IMWRITE_JPEG_QUALITY, 90});
 
     // cout<<"Image saved at raspicam_cv_image.jpg"<<endl;
     // camera.release();
