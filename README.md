@@ -26,6 +26,7 @@ sudo chmod 777 autogen.sh
 ./configure --disable-documentation --with-openssl
 make
 sudo make install
+```
 
 ## Edit and setting connection Raspi OS 12 
 
