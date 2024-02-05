@@ -36,7 +36,7 @@ Cara Setting Wifi - OS Raspi 12 Bookworm terbaru
 1. sudo nmcli c add type wifi ifname wlan0 con-name "se" ssid my_ssid
 2. Kemudian update /etc/NetworkManager/system-connections
 
-Seperti sample dibawah ini ..
+Seperti sample dibawah ini ...
 ```
 id=TP-Link_AC44
 uuid=2f60f269-6d6c-42ac-a903-beba961d1c63
