@@ -26,3 +26,37 @@ sudo chmod 777 autogen.sh
 ./configure --disable-documentation --with-openssl
 make
 sudo make install
+
+## Edit and setting connection Raspi OS 12 
+
+[connection]
+Cara Setting Wifi - OS Raspi 12 Bookworm terbaru
+
+1. sudo nmcli c add type wifi ifname wlan0 con-name "se" ssid my_ssid
+2. Kemudian update /etc/NetworkManager/system-connections
+
+Seperti sample dibawah ini ..
+
+id=TP-Link_AC44
+uuid=2f60f269-6d6c-42ac-a903-beba961d1c63
+type=wifi
+interface-name=wlan0
+
+[wifi]
+mode=infrastructure
+ssid=TP-Link_AC44
+
+[wifi-security]
+auth-alg=open
+key-mgmt=wpa-psk
+psk=aaaaaaaa
+
+[ipv4]
+method=auto
+
+[ipv6]
+addr-gen-mode=default
+method=auto
+
+[proxy]
+
