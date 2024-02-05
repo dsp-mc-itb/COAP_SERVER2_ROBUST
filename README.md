@@ -37,7 +37,7 @@ Cara Setting Wifi - OS Raspi 12 Bookworm terbaru
 2. Kemudian update /etc/NetworkManager/system-connections
 
 Seperti sample dibawah ini ..
-
+```
 id=TP-Link_AC44
 uuid=2f60f269-6d6c-42ac-a903-beba961d1c63
 type=wifi
@@ -60,4 +60,4 @@ addr-gen-mode=default
 method=auto
 
 [proxy]
-
+```
