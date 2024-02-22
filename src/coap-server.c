@@ -13,13 +13,16 @@
 
 #include <string.h>
 #include <stdlib.h>
+
 #include <stdio.h>
+#include <time.h>
 #include <ctype.h>
 #include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/inotify.h>
 #ifdef _WIN32
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
@@ -71,6 +74,9 @@ strndup(const char *s1, size_t n) {
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #endif
 
+#define EVENT_SIZE  (sizeof(struct inotify_event))
+#define BUF_LEN     (1024 * (EVENT_SIZE + 16))
+
 static coap_oscore_conf_t *oscore_conf;
 static int doing_oscore = 0;
 
@@ -85,6 +91,7 @@ static time_t clock_offset;
 static time_t my_clock_base = 0;
 
 coap_resource_t *time_resource = NULL;
+coap_resource_t *example_data_resource = NULL;
 
 static int resource_flags = COAP_RESOURCE_FLAGS_NOTIFY_CON;
 static int track_observes = 0;
@@ -179,6 +186,8 @@ typedef struct transient_value_t {
 
 /* temporary storage for dynamic resource representations */
 static transient_value_t *example_data_value = NULL;
+static transient_value_t *example_data_value2 = NULL;
+static coap_string_t payload = { 0, NULL};
 static int example_data_media_type = COAP_MEDIATYPE_TEXT_PLAIN;
 
 /* SIGINT handler: set quit to 1 for graceful termination */
@@ -469,6 +478,9 @@ hnd_get_example_data(coap_resource_t *resource,
                      const coap_string_t *query,
                      coap_pdu_t *response) {
   coap_binary_t body;
+  payload.length = 0;
+  payload.s = NULL; 
+  printf("SEND EXAMPLE DATA\n\n");
   if (!example_data_value) {
     /* Initialise for the first time */
     int i;
@@ -484,13 +496,66 @@ hnd_get_example_data(coap_resource_t *resource,
     }
     example_data_value = alloc_resource_data(value);
   }
-  printf("TES SEAN\n");
+  // //UNDER TEST
+  // const char *command = "rpicam-jpeg -o test.jpg --width 720 --height 480";
+
+  //   // Execute the command
+  //   int result = system(command);
+
+  //   // Check if the command executed successfully
+  //   if (result == 0) {
+  //       printf("Command executed successfully.\n");
+  //   } else {
+  //       printf("Command failed to execute.\n");
+  //   }
+    FILE *file;
+    char *filename = "tes.jpeg";  // Replace with your file name
+    file = fopen(filename, "rb");
+
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    // Get the file size
+    fseek(file, 0, SEEK_END);
+    size_t file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    // Allocate memory for the uint8_t array
+    uint8_t *data = (uint8_t *)malloc(file_size);
+
+    if (data == NULL) {
+        perror("Memory allocation error");
+        fclose(file);
+        return;
+    }
+
+    // Read the file into the uint8_t array
+    size_t bytes_read = fread(data, 1, file_size, file);
+
+    if (bytes_read != file_size) {
+        perror("Error reading file");
+        free(data);
+        fclose(file);
+        return;
+    }
+
+    fclose(file);
+
+    payload.s = data;
+    payload.length = file_size;
+   
+    printf("Value of myUInt8: %u\n", payload.s);
+    printf("Value of mySizeT: %zu\n", payload.length);
+    coap_log(LOG_NOTICE, "Take image success\n");
+  //===============
   coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
   body = reference_resource_data(example_data_value);
   coap_add_data_large_response(resource, session, request, response,
                                query, example_data_media_type, -1, 0,
-                               body.length,
-                               body.s,
+                               payload.length,
+                               payload.s,
                                release_resource_data, example_data_value);
 }
 
@@ -1800,6 +1865,7 @@ init_resources(coap_context_t *ctx) {
   coap_add_attr(r, coap_make_str_const("ct"), coap_make_str_const("0"), 0);
   coap_add_attr(r, coap_make_str_const("title"), coap_make_str_const("\"Example Data\""), 0);
   coap_add_resource(ctx, r);
+  example_data_resource = r;
 
 #if SERVER_CAN_PROXY
   if (proxy_host_name_count) {
@@ -3010,6 +3076,28 @@ main(int argc, char **argv) {
 
   wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
 
+  int inotifyFd, watchFd;
+    char buffer[BUF_LEN];
+
+    // Initialize inotify
+    inotifyFd = inotify_init();
+    if (inotifyFd == -1) {
+        perror("inotify_init");
+        exit(EXIT_FAILURE);
+    }
+
+    // Add a watch for the file (replace "yourfile.txt" with your actual file)
+    watchFd = inotify_add_watch(inotifyFd, "tes", IN_MODIFY);
+    if (watchFd == -1) {
+        perror("inotify_add_watch");
+        close(inotifyFd);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Watching for changes to the file. Press Ctrl+C to exit.\n");
+
+  
+
   while (!quit) {
     int result;
 
@@ -3021,15 +3109,25 @@ main(int argc, char **argv) {
        * are not a part of libcoap.
        */
       fd_set readfds = m_readfds;
-      struct timeval tv;
+      struct timeval tv, a,b;
       coap_tick_t begin, end;
 
       coap_ticks(&begin);
+      
 
       tv.tv_sec = wait_ms / 1000;
       tv.tv_usec = (wait_ms % 1000) * 1000;
+      // tv.tv_sec = 0;
+      // tv.tv_usec = 100000;
       /* Wait until any i/o takes place or timeout */
+      
+      gettimeofday(&a, NULL);
+      
+      printf("SELECT --\n");
       result = select(nfds, &readfds, NULL, NULL, &tv);
+       printf("SELECT ++++++++++++++++\n");
+      
+      
       if (result == -1) {
         if (errno != EAGAIN) {
           coap_log_debug("select: %s (%d)\n", coap_socket_strerror(), errno);
@@ -3038,15 +3136,26 @@ main(int argc, char **argv) {
       }
       if (result > 0) {
         if (FD_ISSET(coap_fd, &readfds)) {
+          printf("SEAN --\n");
+         
           result = coap_io_process(ctx, COAP_IO_NO_WAIT);
+          printf("SEAN ++++++++++++++++\n");
         }
       }
       if (result >= 0) {
         coap_ticks(&end);
+        gettimeofday(&b, NULL);
+       
         /* Track the overall time spent in select() and coap_io_process() */
         result = (int)(end - begin);
+
+        long elapsed_time1 = (b.tv_sec - a.tv_sec) * 1000 +
+                         (b.tv_usec - a.tv_usec) / 1000;
+      printf("Time taken by function1: %ld milliseconds\n", elapsed_time1);
+    
       }
     } else {
+      printf("never-Happen");
       /*
        * epoll is not supported within libcoap
        *
@@ -3068,24 +3177,93 @@ main(int argc, char **argv) {
        */
       wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
     }
-    if (time_resource) {
-      coap_time_t t_now;
-      unsigned int next_sec_ms;
+    //VERSI AWAL TIME RESOUSE ==========================================================
+    // if (time_resource) {
+    //   coap_time_t t_now;
+    //   unsigned int next_sec_ms;
 
-      coap_ticks(&now);
-      t_now = coap_ticks_to_rt(now);
-      if (t_last != t_now) {
-        /* Happens once per second */
-        t_last = t_now;
-        coap_resource_notify_observers(time_resource, NULL);
-      }
-      /* need to wait until next second starts if wait_ms is too large */
-      next_sec_ms = 1000 - (now % COAP_TICKS_PER_SECOND) *
-                    1000 / COAP_TICKS_PER_SECOND;
-      if (next_sec_ms && next_sec_ms < wait_ms)
-        wait_ms = next_sec_ms;
+    //   coap_ticks(&now);
+    //   t_now = coap_ticks_to_rt(now);
+    //   if (t_last != t_now) {
+    //     /* Happens once per second */
+    //     t_last = t_now;
+    //     coap_resource_notify_observers(time_resource, NULL);
+    //   }
+    //   /* need to wait until next second starts if wait_ms is too large */
+    //   next_sec_ms = 1000 - (now % COAP_TICKS_PER_SECOND) *
+    //                 1000 / COAP_TICKS_PER_SECOND;
+    //   if (next_sec_ms && next_sec_ms < wait_ms)
+    //     wait_ms = next_sec_ms;
+    // }
+    //VERSI AWAL TIME RESOUSE =========================================================
+   
+    if (example_data_resource) {
+      
+      // VERSI WATCHER ========================================================================
+      //  fd_set rfds;
+      //   FD_ZERO(&rfds);
+      //   FD_SET(inotifyFd, &rfds);
+
+      //   struct timeval tv2;
+      //   tv2.tv_sec = 1;
+      //   tv2.tv_usec = 200;  // 50ms
+
+      //   int retval = select(inotifyFd + 1, &rfds, NULL, NULL, &tv2);
+
+      //   if (retval == -1) {
+      //       perror("select");
+      //       exit(EXIT_FAILURE);
+      //   } else if (retval > 0) {
+      //       ssize_t bytesRead = read(inotifyFd, buffer, BUF_LEN);
+      //       if (bytesRead == -1) {
+      //           perror("read");
+      //           exit(EXIT_FAILURE);
+      //       }
+
+      //       // Process the events
+      //       for (char *ptr = buffer; ptr < buffer + bytesRead;) {
+
+      //           struct inotify_event *event = (struct inotify_event *)ptr;
+      //           printf("sean\n");
+      //           if (event->mask & IN_MODIFY) {
+      //               printf("File modified: %s\n", event->name ? event->name : "unknown file");
+      //               coap_resource_notify_observers(example_data_resource, NULL);
+      //           }
+
+      //           ptr += EVENT_SIZE + event->len;
+      //       }
+      //       printf("keluar\n");
+      //   } else {
+      //       // No events, continue with other work or sleep
+      //       printf("No2 events to report. Continue with other work or sleep.\n");
+      //   }
+
+      // VERSI WATCHER ========================================================================
+
+      // VERSI EXAMPLE DATA GET EVERY 1 SEC =================================================
+      // coap_time_t t_now;
+      // unsigned int next_sec_ms;
+
+      // coap_ticks(&now);
+      // t_now = coap_ticks_to_rt(now);
+      // printf("now %d\n", t_now,t_now);
+      //  printf("last %d\n", t_last,t_last);
+      // if (t_last != t_now) {
+      //   /* Happens once per second */
+      //   t_last = t_now;
+      //   coap_resource_notify_observers(example_data_resource, NULL);
+      // }
+      // /* need to wait until next second starts if wait_ms is too large */
+      // next_sec_ms = 1000 - (now % COAP_TICKS_PER_SECOND) *
+      //               1000 / COAP_TICKS_PER_SECOND;
+      // if (next_sec_ms && next_sec_ms < wait_ms)
+      //   wait_ms = next_sec_ms;
+
+      // VERSI EXAMPLE DATA GET EVERY 1 SEC =================================================
+      coap_resource_notify_observers(example_data_resource, NULL);
     }
   }
+  close(inotifyFd);
   exit_code = 0;
 
 finish:
