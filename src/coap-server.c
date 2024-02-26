@@ -463,7 +463,8 @@ hnd_get_async(coap_resource_t *resource,
 
   /* async is automatically removed by libcoap on return from this handler */
 }
-
+int i = 0;
+char nama_file_global[30];
 /*
  * Large Data GET handler
  */
@@ -480,7 +481,9 @@ hnd_get_example_data(coap_resource_t *resource,
   coap_binary_t body;
   payload.length = 0;
   payload.s = NULL; 
-  printf("SEND EXAMPLE DATA\n\n");
+  printf("SEND EXAMPLE DATA");
+  printf(" %d\n",i);
+  i++;
   if (!example_data_value) {
     /* Initialise for the first time */
     int i;
@@ -509,7 +512,13 @@ hnd_get_example_data(coap_resource_t *resource,
   //       printf("Command failed to execute.\n");
   //   }
     FILE *file;
-    char *filename = "tes.jpeg";  // Replace with your file name
+    char *filename;  // Replace with your file name
+
+    if (strlen(nama_file_global) == 0){
+      return;
+    }
+    snprintf(filename,sizeof(nama_file_global),"tes/%s",nama_file_global);
+    printf("NAMA FILE : %s\n",filename);
     file = fopen(filename, "rb");
 
     if (file == NULL) {
@@ -545,9 +554,8 @@ hnd_get_example_data(coap_resource_t *resource,
 
     payload.s = data;
     payload.length = file_size;
+    printf("%d\n",file_size);
    
-    printf("Value of myUInt8: %u\n", payload.s);
-    printf("Value of mySizeT: %zu\n", payload.length);
     coap_log(LOG_NOTICE, "Take image success\n");
   //===============
   coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
@@ -3087,7 +3095,7 @@ main(int argc, char **argv) {
     }
 
     // Add a watch for the file (replace "yourfile.txt" with your actual file)
-    watchFd = inotify_add_watch(inotifyFd, "tes", IN_MODIFY);
+    watchFd = inotify_add_watch(inotifyFd, "tes", IN_CREATE);
     if (watchFd == -1) {
         perror("inotify_add_watch");
         close(inotifyFd);
@@ -3115,17 +3123,17 @@ main(int argc, char **argv) {
       coap_ticks(&begin);
       
 
-      tv.tv_sec = wait_ms / 1000;
-      tv.tv_usec = (wait_ms % 1000) * 1000;
-      // tv.tv_sec = 0;
-      // tv.tv_usec = 100000;
+      // tv.tv_sec = wait_ms / 1000;
+      // tv.tv_usec = (wait_ms % 1000) * 1000;
+      tv.tv_sec = 0;
+      tv.tv_usec = 200;
       /* Wait until any i/o takes place or timeout */
       
       gettimeofday(&a, NULL);
       
-      printf("SELECT --\n");
+     
       result = select(nfds, &readfds, NULL, NULL, &tv);
-       printf("SELECT ++++++++++++++++\n");
+      
       
       
       if (result == -1) {
@@ -3136,10 +3144,10 @@ main(int argc, char **argv) {
       }
       if (result > 0) {
         if (FD_ISSET(coap_fd, &readfds)) {
-          printf("SEAN --\n");
+         
          
           result = coap_io_process(ctx, COAP_IO_NO_WAIT);
-          printf("SEAN ++++++++++++++++\n");
+         
         }
       }
       if (result >= 0) {
@@ -3151,7 +3159,7 @@ main(int argc, char **argv) {
 
         long elapsed_time1 = (b.tv_sec - a.tv_sec) * 1000 +
                          (b.tv_usec - a.tv_usec) / 1000;
-      printf("Time taken by function1: %ld milliseconds\n", elapsed_time1);
+      
     
       }
     } else {
@@ -3200,43 +3208,50 @@ main(int argc, char **argv) {
     if (example_data_resource) {
       
       // VERSI WATCHER ========================================================================
-      //  fd_set rfds;
-      //   FD_ZERO(&rfds);
-      //   FD_SET(inotifyFd, &rfds);
+       fd_set rfds;
+        FD_ZERO(&rfds);
+        FD_SET(inotifyFd, &rfds);
 
-      //   struct timeval tv2;
-      //   tv2.tv_sec = 1;
-      //   tv2.tv_usec = 200;  // 50ms
+        struct timeval tv2;
+        tv2.tv_sec = 0;
+        tv2.tv_usec = 200;  // 50ms
 
-      //   int retval = select(inotifyFd + 1, &rfds, NULL, NULL, &tv2);
+        int retval = select(inotifyFd + 1, &rfds, NULL, NULL, &tv2);
 
-      //   if (retval == -1) {
-      //       perror("select");
-      //       exit(EXIT_FAILURE);
-      //   } else if (retval > 0) {
-      //       ssize_t bytesRead = read(inotifyFd, buffer, BUF_LEN);
-      //       if (bytesRead == -1) {
-      //           perror("read");
-      //           exit(EXIT_FAILURE);
-      //       }
+        if (retval == -1) {
+            perror("select");
+            exit(EXIT_FAILURE);
+        } else if (retval > 0) {
+            ssize_t bytesRead = read(inotifyFd, buffer, BUF_LEN);
+            if (bytesRead == -1) {
+                perror("read");
+                exit(EXIT_FAILURE);
+            }
 
-      //       // Process the events
-      //       for (char *ptr = buffer; ptr < buffer + bytesRead;) {
+            // Process the events
+            for (char *ptr = buffer; ptr < buffer + bytesRead;) {
 
-      //           struct inotify_event *event = (struct inotify_event *)ptr;
-      //           printf("sean\n");
-      //           if (event->mask & IN_MODIFY) {
-      //               printf("File modified: %s\n", event->name ? event->name : "unknown file");
-      //               coap_resource_notify_observers(example_data_resource, NULL);
-      //           }
+                struct inotify_event *event = (struct inotify_event *)ptr;
+                printf("sean\n");
+                if (event->mask & IN_MODIFY) {
+                    printf("File modified: %s\n", event->name ? event->name : "unknown file");
+                    
+                    coap_resource_notify_observers(example_data_resource, NULL);
+                }
+                if (event->mask & IN_CREATE) {
+                    printf("File CREATED: %s\n", event->name ? event->name : "unknown file");
+                    snprintf(nama_file_global,strlen(event->name)+1,"%s",event->name);
+                    printf("%s\n",nama_file_global);
+                    coap_resource_notify_observers(example_data_resource, NULL);
+                }
 
-      //           ptr += EVENT_SIZE + event->len;
-      //       }
-      //       printf("keluar\n");
-      //   } else {
-      //       // No events, continue with other work or sleep
-      //       printf("No2 events to report. Continue with other work or sleep.\n");
-      //   }
+                ptr += EVENT_SIZE + event->len;
+            }
+            printf("keluar\n");
+        } else {
+            // No events, continue with other work or sleep
+            
+        }
 
       // VERSI WATCHER ========================================================================
 
@@ -3260,7 +3275,7 @@ main(int argc, char **argv) {
       //   wait_ms = next_sec_ms;
 
       // VERSI EXAMPLE DATA GET EVERY 1 SEC =================================================
-      coap_resource_notify_observers(example_data_resource, NULL);
+      // coap_resource_notify_observers(example_data_resource, NULL);
     }
   }
   close(inotifyFd);
