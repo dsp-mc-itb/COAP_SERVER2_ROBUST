@@ -8,7 +8,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  *
  * This file is part of the CoAP library libcoap. Please see README for terms
- * of use.
+ * of usea.
  */
 
 #include <string.h>
