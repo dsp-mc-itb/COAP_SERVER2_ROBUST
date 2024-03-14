@@ -79,7 +79,7 @@ strndup(const char *s1, size_t n) {
 
 static coap_oscore_conf_t *oscore_conf;
 static int doing_oscore = 0;
-
+int index_file = 0;
 /* set to 1 to request clean server shutdown */
 static int quit = 0;
 
@@ -264,6 +264,11 @@ reference_resource_data(transient_value_t *entry) {
     body.s = NULL;
   }
   return body;
+}
+
+void convertToFiveDigitString(int number, char* result) {
+    // Use sprintf to format the integer with leading zeros
+    sprintf(result, "%05d", number);
 }
 
 #define INDEX "This is a test server made with libcoap (see https://libcoap.net)\n" \
@@ -464,7 +469,7 @@ hnd_get_async(coap_resource_t *resource,
   /* async is automatically removed by libcoap on return from this handler */
 }
 int i = 0;
-char nama_file_global[30];
+char nama_file_global[60];
 /*
  * Large Data GET handler
  */
@@ -472,6 +477,19 @@ char nama_file_global[30];
 #ifndef INITIAL_EXAMPLE_SIZE
 #define INITIAL_EXAMPLE_SIZE 1500
 #endif
+//DEFINE
+
+#define ACK_TIMEOUT ((coap_fixed_point_t){0,50})
+#define ACK_RANDOM_FACTOR ((coap_fixed_point_t){0,25})
+#define NON_TIMEOUT (coap_fixed_point_t){0,50}
+#define NON_RECEIVE_TIMEOUT ((coap_fixed_point_t){0,500})
+#define MAX_RETRANSMIT 4
+#define MAX_PAYLOADS_SET 10
+#define NSTART 1
+#define COAP_DEBUG_PACKET_LOSS "0%%"
+// #define COAP_DEBUG_PACKET_LOSS "11,12,13,14,15,16,17"
+//coap_debug_set_packet_loss(optarg)
+
 static void
 hnd_get_example_data(coap_resource_t *resource,
                      coap_session_t *session,
@@ -479,8 +497,16 @@ hnd_get_example_data(coap_resource_t *resource,
                      const coap_string_t *query,
                      coap_pdu_t *response) {
   coap_binary_t body;
+  coap_binary_t *theData;
   payload.length = 0;
   payload.s = NULL; 
+  //INITIALIZE PARAMETER
+  coap_session_set_ack_timeout(session, ACK_TIMEOUT );
+  coap_session_set_ack_random_factor(session, ACK_RANDOM_FACTOR);
+  coap_session_set_non_timeout(session,NON_TIMEOUT);
+  coap_session_set_non_receive_timeout(session,NON_RECEIVE_TIMEOUT);
+  coap_session_set_max_payloads(session, MAX_PAYLOADS_SET);
+  coap_session_set_nstart(session,NSTART);
   printf("SEND EXAMPLE DATA");
   printf(" %d\n",i);
   i++;
@@ -512,12 +538,14 @@ hnd_get_example_data(coap_resource_t *resource,
   //       printf("Command failed to execute.\n");
   //   }
     FILE *file;
-    char *filename;  // Replace with your file name
-
+    // char *filename;  // Replace with your file name
+    char* filename = (char*)malloc(60);
     if (strlen(nama_file_global) == 0){
       return;
     }
-    snprintf(filename,sizeof(nama_file_global),"tes/%s",nama_file_global);
+    printf("file global %s\n",nama_file_global);
+    
+    snprintf(filename,sizeof(nama_file_global),"../tes/%s",nama_file_global);
     printf("NAMA FILE : %s\n",filename);
     file = fopen(filename, "rb");
 
@@ -551,19 +579,31 @@ hnd_get_example_data(coap_resource_t *resource,
     }
 
     fclose(file);
-
-    payload.s = data;
-    payload.length = file_size;
+    free(filename);
+    // body.s = data;
+    // body.length = file_size;
+    theData = coap_new_binary(file_size);
+    if (theData) {
+      memcpy(theData->s, data, file_size);
+    }
+    
+    example_data_value = alloc_resource_data(theData);
     printf("%d\n",file_size);
    
     coap_log(LOG_NOTICE, "Take image success\n");
   //===============
   coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
   body = reference_resource_data(example_data_value);
+  // body = reference_resource_data(example_data_value);
+  // coap_add_data_large_response(resource, session, request, response,
+  //                              query, example_data_media_type, -1, 0,
+  //                              payload.length,
+  //                              payload.s,
+  //                              release_resource_data, example_data_value);
   coap_add_data_large_response(resource, session, request, response,
                                query, example_data_media_type, -1, 0,
-                               payload.length,
-                               payload.s,
+                               body.length,
+                               body.s,
                                release_resource_data, example_data_value);
 }
 
@@ -2838,6 +2878,8 @@ main(int argc, char **argv) {
   /* Initialize libcoap library */
   coap_startup();
 
+  coap_debug_set_packet_loss(COAP_DEBUG_PACKET_LOSS);
+
   clock_offset = time(NULL);
 
   while ((opt = getopt(argc, argv,
@@ -3095,7 +3137,7 @@ main(int argc, char **argv) {
     }
 
     // Add a watch for the file (replace "yourfile.txt" with your actual file)
-    watchFd = inotify_add_watch(inotifyFd, "tes", IN_CREATE);
+    watchFd = inotify_add_watch(inotifyFd, "../tes", IN_CREATE);
     if (watchFd == -1) {
         perror("inotify_add_watch");
         close(inotifyFd);
@@ -3232,17 +3274,25 @@ main(int argc, char **argv) {
             for (char *ptr = buffer; ptr < buffer + bytesRead;) {
 
                 struct inotify_event *event = (struct inotify_event *)ptr;
-                printf("sean\n");
-                if (event->mask & IN_MODIFY) {
-                    printf("File modified: %s\n", event->name ? event->name : "unknown file");
+                printf("Ada Event file baru\n");
+                // if (event->mask & IN_MODIFY) {
+                //     printf("File modified: %s\n", event->name ? event->name : "unknown file");
                     
-                    coap_resource_notify_observers(example_data_resource, NULL);
-                }
+                //     coap_resource_notify_observers(example_data_resource, NULL);
+                // }
                 if (event->mask & IN_CREATE) {
                     printf("File CREATED: %s\n", event->name ? event->name : "unknown file");
-                    snprintf(nama_file_global,strlen(event->name)+1,"%s",event->name);
-                    printf("%s\n",nama_file_global);
-                    coap_resource_notify_observers(example_data_resource, NULL);
+                    //snprintf(nama_file_global,strlen(event->name)+1,"%d--%s",index_file,event->name);
+                    // Allocate memory for the result string
+                    char result[6]; // 5 digits + 1 for null terminator
+                    if (index_file != 0){
+                      convertToFiveDigitString(index_file - 1, result);
+                      snprintf(nama_file_global,strlen(event->name)+1,"test%s.jpeg",result);
+                      printf("%s\n",nama_file_global);
+                      coap_resource_notify_observers(example_data_resource, NULL);
+                    }
+                    index_file = index_file + 1;
+                                 
                 }
 
                 ptr += EVENT_SIZE + event->len;
@@ -3278,6 +3328,7 @@ main(int argc, char **argv) {
       // coap_resource_notify_observers(example_data_resource, NULL);
     }
   }
+  printf("end loop\n");
   close(inotifyFd);
   exit_code = 0;
 
