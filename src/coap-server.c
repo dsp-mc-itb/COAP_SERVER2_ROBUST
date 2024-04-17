@@ -475,12 +475,12 @@ char nama_file_global[60];
  */
 
 #ifndef INITIAL_EXAMPLE_SIZE
-#define INITIAL_EXAMPLE_SIZE 1500
+#define INITIAL_EXAMPLE_SIZE 30000
 #endif
 //DEFINE
 
-#define ACK_TIMEOUT ((coap_fixed_point_t){0,50})
-#define ACK_RANDOM_FACTOR ((coap_fixed_point_t){0,25})
+#define ACK_TIMEOUT ((coap_fixed_point_t){0,100})
+#define ACK_RANDOM_FACTOR ((coap_fixed_point_t){1,500})
 #define NON_TIMEOUT (coap_fixed_point_t){0,50}
 #define NON_RECEIVE_TIMEOUT ((coap_fixed_point_t){0,500})
 #define MAX_RETRANSMIT 4
@@ -511,6 +511,7 @@ hnd_get_example_data(coap_resource_t *resource,
   printf(" %d\n",i);
   i++;
   if (!example_data_value) {
+    printf("HAPPENS;");
     /* Initialise for the first time */
     int i;
     coap_binary_t *value = coap_new_binary(INITIAL_EXAMPLE_SIZE);
@@ -524,19 +525,7 @@ hnd_get_example_data(coap_resource_t *resource,
       }
     }
     example_data_value = alloc_resource_data(value);
-  }
-  // //UNDER TEST
-  // const char *command = "rpicam-jpeg -o test.jpg --width 720 --height 480";
-
-  //   // Execute the command
-  //   int result = system(command);
-
-  //   // Check if the command executed successfully
-  //   if (result == 0) {
-  //       printf("Command executed successfully.\n");
-  //   } else {
-  //       printf("Command failed to execute.\n");
-  //   }
+  } else {
     FILE *file;
     // char *filename;  // Replace with your file name
     char* filename = (char*)malloc(60);
@@ -592,7 +581,21 @@ hnd_get_example_data(coap_resource_t *resource,
    
     coap_log(LOG_NOTICE, "Take image success\n");
   //===============
-  coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
+  
+  }
+  // //UNDER TEST
+  // const char *command = "rpicam-jpeg -o test.jpg --width 720 --height 480";
+
+  //   // Execute the command
+  //   int result = system(command);
+
+  //   // Check if the command executed successfully
+  //   if (result == 0) {
+  //       printf("Command executed successfully.\n");
+  //   } else {
+  //       printf("Command failed to execute.\n");
+  //   }
+  coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);  
   body = reference_resource_data(example_data_value);
   // body = reference_resource_data(example_data_value);
   // coap_add_data_large_response(resource, session, request, response,
@@ -600,6 +603,7 @@ hnd_get_example_data(coap_resource_t *resource,
   //                              payload.length,
   //                              payload.s,
   //                              release_resource_data, example_data_value);
+  
   coap_add_data_large_response(resource, session, request, response,
                                query, example_data_media_type, -1, 0,
                                body.length,
@@ -2823,23 +2827,23 @@ cmdline_read_extended_token_size(char *arg) {
   return 1;
 }
 
-#ifndef _WIN32
+// #ifndef _WIN32
 
-uint32_t syslog_pri = 0;
+// uint32_t syslog_pri = 0;
 
-static void
-syslog_handler(coap_log_t level, const char *message) {
-  char *cp = strchr(message, '\n');
+// static void
+// syslog_handler(coap_log_t level, const char *message) {
+//   char *cp = strchr(message, '\n');
 
-  if (cp) {
-    char *lcp = strchr(message, '\r');
-    if (lcp && lcp < cp)
-      cp = lcp;
-  }
-  syslog(syslog_pri, "%s %*.*s", coap_log_level_desc(level), (int)(cp-message),
-         (int)(cp-message), message);
-}
-#endif /* ! _WIN32 */
+//   if (cp) {
+//     char *lcp = strchr(message, '\r');
+//     if (lcp && lcp < cp)
+//       cp = lcp;
+//   }
+//   syslog(syslog_pri, "%s %*.*s", coap_log_level_desc(level), (int)(cp-message),
+//          (int)(cp-message), message);
+// }
+// #endif /* ! _WIN32 */
 
 int
 main(int argc, char **argv) {
@@ -2860,10 +2864,10 @@ main(int argc, char **argv) {
   int nfds = 0;
   size_t i;
   int exit_code = 0;
-  uint32_t max_block_size = 0;
-#ifndef _WIN32
-  int use_syslog = 0;
-#endif /* ! _WIN32 */
+//   uint32_t max_block_size = 0;
+// #ifndef _WIN32
+//   int use_syslog = 0;
+// #endif /* ! _WIN32 */
   uint16_t cache_ignore_options[] = { COAP_OPTION_BLOCK1,
                                       COAP_OPTION_BLOCK2,
                                       /* See https://rfc-editor.org/rfc/rfc7959#section-2.10 */
@@ -2885,21 +2889,21 @@ main(int argc, char **argv) {
   while ((opt = getopt(argc, argv,
                        "a:b:c:d:eg:G:h:i:j:J:k:l:mnp:rs:tu:v:w:A:C:E:L:M:NP:R:S:T:U:V:X:")) != -1) {
     switch (opt) {
-#ifndef _WIN32
-    case 'a':
-      use_syslog = 1;
-      syslog_pri = atoi(optarg);
-      if (syslog_pri > 7)
-        syslog_pri = 7;
-      break;
-#endif /* ! _WIN32 */
+// #ifndef _WIN32
+//     case 'a':
+//       use_syslog = 1;
+//       syslog_pri = atoi(optarg);
+//       if (syslog_pri > 7)
+//         syslog_pri = 7;
+//       break;
+// #endif /* ! _WIN32 */
     case 'A' :
       strncpy(addr_str, optarg, NI_MAXHOST-1);
       addr_str[NI_MAXHOST - 1] = '\0';
       break;
-    case 'b':
-      max_block_size = atoi(optarg);
-      break;
+    // case 'b':
+    //   max_block_size = atoi(optarg);
+    //   break;
     case 'c' :
       cert_file = optarg;
       break;
@@ -3067,13 +3071,13 @@ main(int argc, char **argv) {
   sigaction(SIGPIPE, &sa, NULL);
 #endif
 
-#ifndef _WIN32
-  if (use_syslog) {
-    openlog("coap-server", 0, LOG_DAEMON);
-    coap_set_show_pdu_output(0);
-    coap_set_log_handler(syslog_handler);
-  }
-#endif /* ! _WIN32 */
+// #ifndef _WIN32
+//   if (use_syslog) {
+//     openlog("coap-server", 0, LOG_DAEMON);
+//     coap_set_show_pdu_output(0);
+//     coap_set_log_handler(syslog_handler);
+//   }
+// #endif /* ! _WIN32 */
   coap_set_log_level(log_level);
   coap_dtls_set_log_level(dtls_log_level);
 
@@ -3085,7 +3089,7 @@ main(int argc, char **argv) {
   if (mcast_per_resource)
     coap_mcast_per_resource(ctx);
   coap_context_set_block_mode(ctx, block_mode);
-  coap_context_set_max_block_size(ctx, max_block_size);
+  // coap_context_set_max_block_size(ctx, max_block_size);
   if (csm_max_message_size)
     coap_context_set_csm_max_message_size(ctx, csm_max_message_size);
   if (doing_oscore) {
@@ -3145,8 +3149,6 @@ main(int argc, char **argv) {
     }
 
     printf("Watching for changes to the file. Press Ctrl+C to exit.\n");
-
-  
 
   while (!quit) {
     int result;
