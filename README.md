@@ -1,4 +1,4 @@
-# COAP_CLENT_ROBUST
+# COAP_SERVER_ROBUST
 
 ## Installation Raspi camera in Raspi using C++ language
 
@@ -27,6 +27,8 @@ sudo chmod 777 autogen.sh
 make
 sudo make install
 ```
+## Install cmake
+sudo apt install cmake
 
 ## Edit and setting connection Raspi OS 12 
 
