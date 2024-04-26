@@ -482,7 +482,7 @@ char nama_file_global[60];
 #define ACK_TIMEOUT ((coap_fixed_point_t){0,50})
 #define ACK_RANDOM_FACTOR ((coap_fixed_point_t){1,500})
 #define NON_TIMEOUT (coap_fixed_point_t){0,50}
-#define NON_RECEIVE_TIMEOUT ((coap_fixed_point_t){0,500})
+#define NON_RECEIVE_TIMEOUT ((coap_fixed_point_t){3,0})
 #define MAX_RETRANSMIT 4
 #define MAX_PAYLOADS_SET 10
 #define NSTART 1
@@ -529,6 +529,7 @@ hnd_get_example_data(coap_resource_t *resource,
       }
     }
     example_data_value = alloc_resource_data(value);
+    
   } else {
     FILE *file;
     // char *filename;  // Replace with your file name
@@ -560,6 +561,7 @@ hnd_get_example_data(coap_resource_t *resource,
         fclose(file);
         return;
     }
+    
 
     // Read the file into the uint8_t array
     size_t bytes_read = fread(data, 1, file_size, file);
@@ -570,6 +572,7 @@ hnd_get_example_data(coap_resource_t *resource,
         fclose(file);
         return;
     }
+    
 
     fclose(file);
     free(filename);
@@ -582,6 +585,7 @@ hnd_get_example_data(coap_resource_t *resource,
     
     example_data_value = alloc_resource_data(theData);
     printf("%d\n",file_size);
+    
    
     coap_log(LOG_NOTICE, "Take image success\n");
   //===============
