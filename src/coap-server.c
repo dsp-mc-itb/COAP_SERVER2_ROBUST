@@ -479,7 +479,7 @@ char nama_file_global[60];
 #endif
 //DEFINE
 
-#define ACK_TIMEOUT ((coap_fixed_point_t){0,100})
+#define ACK_TIMEOUT ((coap_fixed_point_t){0,50})
 #define ACK_RANDOM_FACTOR ((coap_fixed_point_t){1,500})
 #define NON_TIMEOUT (coap_fixed_point_t){0,50}
 #define NON_RECEIVE_TIMEOUT ((coap_fixed_point_t){0,500})
@@ -489,6 +489,9 @@ char nama_file_global[60];
 #define COAP_DEBUG_PACKET_LOSS "0%%"
 // #define COAP_DEBUG_PACKET_LOSS "11,12,13,14,15,16,17"
 //coap_debug_set_packet_loss(optarg)
+
+int arg_max_payloads = 10;
+int arg_nstart = 1;
 
 static void
 hnd_get_example_data(coap_resource_t *resource,
@@ -505,8 +508,9 @@ hnd_get_example_data(coap_resource_t *resource,
   coap_session_set_ack_random_factor(session, ACK_RANDOM_FACTOR);
   coap_session_set_non_timeout(session,NON_TIMEOUT);
   coap_session_set_non_receive_timeout(session,NON_RECEIVE_TIMEOUT);
-  coap_session_set_max_payloads(session, MAX_PAYLOADS_SET);
-  coap_session_set_nstart(session,NSTART);
+  printf("max : %d nstart : %d \n",arg_max_payloads,arg_nstart);
+  coap_session_set_max_payloads(session, arg_max_payloads);
+  coap_session_set_nstart(session,arg_nstart);
   printf("SEND EXAMPLE DATA");
   printf(" %d\n",i);
   i++;
@@ -2887,7 +2891,7 @@ main(int argc, char **argv) {
   clock_offset = time(NULL);
 
   while ((opt = getopt(argc, argv,
-                       "a:b:c:d:eg:G:h:i:j:J:k:l:mnp:rs:tu:v:w:A:C:E:L:M:NP:R:S:T:U:V:X:")) != -1) {
+                       "a:b:c:d:eg:G:h:i:j:J:k:l:m:p:rs:tu:v:w:A:C:E:L:M:NP:R:S:T:U:V:X:n:s:")) != -1) {
     switch (opt) {
 // #ifndef _WIN32
 //     case 'a':
@@ -2923,6 +2927,7 @@ main(int argc, char **argv) {
       }
       break;
     case 'g' :
+    
       group = optarg;
       break;
     case 'G' :
@@ -2968,14 +2973,18 @@ main(int argc, char **argv) {
       }
       break;
     case 'm':
-      use_pem_buf = 1;
+      arg_max_payloads = atoi(optarg);
+      //use_pem_buf = 1;
       break;
     case 'M':
       cert_file = optarg;
       is_rpk_not_cert = 1;
       break;
     case 'n':
-      verify_peer_cert = 0;
+      // verify_peer_cert = 0;
+      printf("%s",optarg);
+
+      arg_nstart = atoi(optarg);
       break;
     case 'N':
       resource_flags = COAP_RESOURCE_FLAGS_NOTIFY_NON;
