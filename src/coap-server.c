@@ -479,7 +479,7 @@ char nama_file_global[60];
 #endif
 //DEFINE
 
-#define ACK_TIMEOUT ((coap_fixed_point_t){0,50})
+#define ACK_TIMEOUT ((coap_fixed_point_t){2,0}) //0,50
 #define ACK_RANDOM_FACTOR ((coap_fixed_point_t){1,500})
 #define NON_TIMEOUT (coap_fixed_point_t){0,50}
 #define NON_RECEIVE_TIMEOUT ((coap_fixed_point_t){3,0})
@@ -515,7 +515,7 @@ hnd_get_example_data(coap_resource_t *resource,
   printf(" %d\n",i);
   i++;
   if (!example_data_value) {
-    printf("HAPPENS;");
+    printf("HAPPENS ONCE;\n");
     /* Initialise for the first time */
     int i;
     coap_binary_t *value = coap_new_binary(INITIAL_EXAMPLE_SIZE);
@@ -584,7 +584,7 @@ hnd_get_example_data(coap_resource_t *resource,
     }
     
     example_data_value = alloc_resource_data(theData);
-    printf("%d\n",file_size);
+    printf("FILE SIZE%d\n\n",file_size);
     
    
     coap_log(LOG_NOTICE, "Take image success\n");
@@ -2853,6 +2853,7 @@ cmdline_read_extended_token_size(char *arg) {
 // }
 // #endif /* ! _WIN32 */
 
+int helperSEANremovesoon = 0;
 int
 main(int argc, char **argv) {
   coap_context_t *ctx = NULL;
@@ -3289,22 +3290,23 @@ main(int argc, char **argv) {
             for (char *ptr = buffer; ptr < buffer + bytesRead;) {
 
                 struct inotify_event *event = (struct inotify_event *)ptr;
-                printf("Ada Event file baru\n");
+                //printf("Ada Event file baru\n");
                 // if (event->mask & IN_MODIFY) {
                 //     printf("File modified: %s\n", event->name ? event->name : "unknown file");
                     
                 //     coap_resource_notify_observers(example_data_resource, NULL);
                 // }
                 if (event->mask & IN_CREATE) {
-                    printf("File CREATED: %s\n", event->name ? event->name : "unknown file");
+                    //printf("File CREATED: %s\n", event->name ? event->name : "unknown file");
                     //snprintf(nama_file_global,strlen(event->name)+1,"%d--%s",index_file,event->name);
                     // Allocate memory for the result string
                     char result[6]; // 5 digits + 1 for null terminator
                     if (index_file != 0){
                       convertToFiveDigitString(index_file - 1, result);
                       snprintf(nama_file_global,strlen(event->name)+1,"test%s.jpeg",result);
-                      printf("%s\n",nama_file_global);
+                      printf("ada file baru : %s\n",nama_file_global);
                       coap_resource_notify_observers(example_data_resource, NULL);
+                      helperSEANremovesoon = 1;
                     }
                     index_file = index_file + 1;
                                  
@@ -3312,7 +3314,7 @@ main(int argc, char **argv) {
 
                 ptr += EVENT_SIZE + event->len;
             }
-            printf("keluar\n");
+            //printf("keluar\n");
         } else {
             // No events, continue with other work or sleep
             
